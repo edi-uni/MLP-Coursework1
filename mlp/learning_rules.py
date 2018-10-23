@@ -197,9 +197,11 @@ class AdamLearningRule(GradientDescentLearningRule):
                 a small positive value.
         """
         super(AdamLearningRule, self).__init__(learning_rate)
+        assert learning_rate > 0., 'learning_rate should be positive.'
         assert beta_1 >= 0. and beta_1 <= 1., 'beta_1 should be in [0, 1].'
         assert beta_2 >= 0. and beta_2 <= 1., 'beta_2 should be in [0, 2].'
         assert epsilon > 0., 'epsilon should be > 0.'
+        self.learning_rate = learning_rate
         self.beta_1 = beta_1
         self.beta_2 = beta_2
         self.epsilon = epsilon
@@ -226,7 +228,11 @@ class AdamLearningRule(GradientDescentLearningRule):
         For this learning rule this corresponds to zeroing the estimates of
         the first and second moments of the gradients.
         """
-        raise NotImplementedError
+        for mom1 in self.moms_1:
+            mom1 *= 0.
+        for mom2 in self.moms_2:
+            mom2 *= 0.
+        self.step_count *= 0
 
     def update_params(self, grads_wrt_params):
         """Applies a single update to all parameters.
@@ -237,7 +243,19 @@ class AdamLearningRule(GradientDescentLearningRule):
                 with respect to each of the parameters passed to `initialise`
                 previously, with this list expected to be in the same order.
         """
-        raise NotImplementedError
+        for param, mom1, mom2, grad in zip(
+                self.params, self.moms_1, self.moms_2, grads_wrt_params):
+            self.step_count += 1
+#             mom1 = self.beta_1 * mom1 + (1 - self.beta_1) * grad
+            mom1 *= self.beta_1
+            mom1 += (1 - self.beta_1) * grad
+            mom1_t = mom1 / (1 - self.beta_1**self.step_count)
+#             mom2 = self.beta_2 * mom2 + (1 - self.beta_2) * (grad**2)
+            mom2 *= self.beta_2
+            mom2 += (1 - self.beta_2) * (grad**2)
+            mom2_t = mom2 / (1 - self.beta_2**self.step_count)
+            param -= (self.learning_rate * mom1_t /
+                      (np.sqrt(mom2_t) + self.epsilon))
 
 class AdamLearningRuleWithWeightDecay(GradientDescentLearningRule):
     """Adaptive moments (Adam) learning rule with Weight Decay.
@@ -415,8 +433,10 @@ class RMSPropLearningRule(GradientDescentLearningRule):
                 set to a small positive value.
         """
         super(RMSPropLearningRule, self).__init__(learning_rate)
+        assert learning_rate > 0., 'learning_rate should be positive.'
         assert beta >= 0. and beta <= 1., 'beta should be in [0, 1].'
         assert epsilon > 0., 'epsilon should be > 0.'
+        self.learning_rate = learning_rate
         self.beta = beta
         self.epsilon = epsilon
 
@@ -429,15 +449,17 @@ class RMSPropLearningRule(GradientDescentLearningRule):
                 update.
         """
         super(RMSPropLearningRule, self).initialise(params)
-
-        raise NotImplementedError
+        self.caches = []
+        for param in self.params:
+            self.caches.append(np.zeros_like(param))
 
     def reset(self):
         """Resets any additional state variables to their initial values.
         For this learning rule this corresponds to zeroing all gradient
         second moment estimates.
         """
-        raise NotImplementedError
+        for cache in self.caches:
+            cache *= 0.
 
     def update_params(self, grads_wrt_params):
         """Applies a single update to all parameters.
@@ -448,4 +470,8 @@ class RMSPropLearningRule(GradientDescentLearningRule):
                 with respect to each of the parameters passed to `initialise`
                 previously, with this list expected to be in the same order.
         """
-        raise NotImplementedError
+        for param, cache, grad in zip(
+                self.params, self.caches, grads_wrt_params):
+            cache = self.beta * cache + (1 - self.beta) * (grad**2)
+            param -= (self.learning_rate * grad /
+                      (np.sqrt(cache) + self.epsilon))

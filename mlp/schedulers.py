@@ -52,6 +52,9 @@ class CosineAnnealingWithWarmRestarts(object):
 
         self.max_learning_rate_discount_factor = max_learning_rate_discount_factor
         self.period_iteration_expansion_factor = period_iteration_expansion_factor
+        self.T_cur = 0.
+        self.last_restart = 0
+        self.previous_epoch_number = -1
 
 
     def update_learning_rule(self, learning_rule, epoch_number):
@@ -65,7 +68,34 @@ class CosineAnnealingWithWarmRestarts(object):
                 attributes of this object.
             epoch_number: Integer index of training epoch about to be run.
         """
-        raise NotImplementedError
+        
+        
+        
+        if (epoch_number - self.previous_epoch_number) > 1:
+            if (self.last_restart + self.total_epochs_per_period) <= epoch_number:
+                while (self.last_restart + self.total_epochs_per_period) <= epoch_number:
+                    self.max_learning_rate *= self.max_learning_rate_discount_factor
+                    self.total_epochs_per_period *= self.period_iteration_expansion_factor
+                    self.last_restart += self.total_epochs_per_period
+
+                self.T_cur = epoch_number - self.last_restart
+                multiplier = self.min_learning_rate + 0.5 * (self.max_learning_rate - self.min_learning_rate) * (1 + np.cos(np.pi * (self.T_cur/self.total_epochs_per_period)))
+                
+        else:
+            if self.T_cur == (self.total_epochs_per_period - 1):
+                self.T_cur *= 0.
+                self.max_learning_rate *= self.max_learning_rate_discount_factor
+                self.total_epochs_per_period *= self.period_iteration_expansion_factor
+                self.last_restart = epoch_number
+            else:
+                self.T_cur = epoch_number - self.last_restart
+
+            multiplier = self.min_learning_rate + 0.5 * (self.max_learning_rate - self.min_learning_rate) * (1 + np.cos(np.pi * (self.T_cur/self.total_epochs_per_period)))
+            
+        self.previous_epoch_number = epoch_number;
+        
+        learning_rule.learning_rate = multiplier
+        return learning_rule.learning_rate
 
 
 
