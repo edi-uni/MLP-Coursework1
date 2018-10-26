@@ -69,6 +69,8 @@ class CosineAnnealingWithWarmRestarts(object):
             epoch_number: Integer index of training epoch about to be run.
         """
         
+        multiplier = 0
+        
         if (epoch_number - self.previous_epoch_number) > 1:
             if (self.last_restart + self.total_epochs_per_period) <= epoch_number:
                 while (self.last_restart + self.total_epochs_per_period) <= epoch_number:
@@ -92,9 +94,7 @@ class CosineAnnealingWithWarmRestarts(object):
             
         self.previous_epoch_number = epoch_number;
         
-        learning_rule.learning_rate *= 0
-        learning_rule.learning_rate += multiplier
-#         learning_rule.learning_rate = multiplier
+        learning_rule.learning_rate = multiplier
         return learning_rule.learning_rate
 
 
